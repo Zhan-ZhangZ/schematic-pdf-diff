@@ -72,11 +72,18 @@ class WebJobManager:
                 job = json.loads(metadata_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
+            changed = False
             if job.get("status") in {"queued", "running"}:
                 job["status"] = "error"
                 job["phase"] = "error"
                 job["phase_label"] = "服务重启导致任务中断"
                 job["error"] = "处理服务在任务完成前退出，请重新提交。"
+                changed = True
+            normalized_links = self.links(job["job_id"])
+            if job.get("links") != normalized_links:
+                job["links"] = normalized_links
+                changed = True
+            if changed:
                 _write_json(metadata_path, job)
             self._jobs[job["job_id"]] = job
 

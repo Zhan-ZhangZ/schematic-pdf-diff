@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
@@ -70,6 +71,33 @@ def test_web_reverse_proxy_prefix(tmp_path: Path) -> None:
     assert 'const BASE_PATH = "/schemadiff-test"' in page.get_data(as_text=True)
     health = client.get("/schemadiff-test/api/health")
     assert health.status_code == 200
+
+
+def test_web_history_drops_legacy_zip_link(tmp_path: Path) -> None:
+    job_id = "0123456789ab"
+    job_dir = tmp_path / "web" / "jobs" / job_id
+    job_dir.mkdir(parents=True)
+    (job_dir / "job.json").write_text(
+        json.dumps(
+            {
+                "job_id": job_id,
+                "status": "complete",
+                "old_name": "old.pdf",
+                "new_name": "new.pdf",
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "updated_at": "2026-01-01T00:00:00+00:00",
+                "summary": {},
+                "links": {
+                    "download": f"/api/jobs/{job_id}/download",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    app = create_app(tmp_path / "web", max_workers=1)
+    jobs = app.test_client().get("/api/jobs").get_json()["jobs"]
+    assert jobs[0]["job_id"] == job_id
+    assert "download" not in jobs[0]["links"]
 
 
 def test_web_compares_uploaded_pdfs(tmp_path: Path) -> None:
