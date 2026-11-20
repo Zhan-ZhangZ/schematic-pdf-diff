@@ -71,7 +71,7 @@ if sys.platform == "darwin":
         bundle_identifier="dev.schematicpdfdiff.desktop",
         info_plist={
             "CFBundleDisplayName": "Electronic Schematic PDF Diff",
-            "CFBundleShortVersionString": "0.1.1",
+            "CFBundleShortVersionString": "0.1.2",
             "CFBundleVersion": "1",
             "LSMinimumSystemVersion": "12.0",
             "NSHighResolutionCapable": True,

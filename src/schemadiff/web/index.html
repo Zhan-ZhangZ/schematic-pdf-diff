@@ -22,6 +22,7 @@
       --shadow: 0 18px 50px rgba(24, 45, 66, 0.09);
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     html { min-height: 100%; }
     body {
       margin: 0;
@@ -58,6 +59,10 @@
       display: inline-flex; align-items: center; gap: 7px; color: var(--green);
       background: var(--green-soft); border: 1px solid #c7e2d8;
       border-radius: 999px; padding: 6px 11px; font-size: 12px; font-weight: 650;
+    }
+    .topbar-actions { display: flex; align-items: center; gap: 10px; }
+    .topbar-back {
+      min-height: 34px; padding: 7px 12px; border-radius: 8px; font-size: 12px;
     }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: #1a8e73; }
     main {
@@ -172,43 +177,29 @@
       padding: 28px 16px; border: 1px dashed var(--line); border-radius: 11px;
       color: var(--muted); text-align: center; background: #fbfcfd;
     }
-    .result { display: none; margin-top: 28px; }
-    .result-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
-    .result-head h2 { margin: 0 0 5px; font-size: 25px; }
-    .result-head p { margin: 0; color: var(--muted); }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .stat { border: 1px solid var(--line); border-radius: 12px; padding: 15px; background: #fafbfc; }
-    .stat b { font-size: 27px; display: block; line-height: 1.1; }
-    .stat span { color: var(--muted); font-size: 12px; }
-    .changes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
-    .change {
-      border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 10px;
-      padding: 11px 13px; background: white;
-    }
-    .change:hover { background: #fbfdff; }
-    .change b { display: block; margin-bottom: 3px; }
-    .change small { color: var(--muted); }
+    .result { display: none; margin-top: 0; flex: 1; }
+    body.result-mode main { padding-top: 12px; padding-bottom: 12px; }
+    body.result-mode .hero { display: none; }
+    body.result-mode footer { display: none; }
     .report-frame {
-      width: 100%; min-height: 760px; margin-top: 22px; border: 1px solid var(--line);
+      width: 100%; min-height: 720px; height: calc(100vh - 92px); margin-top: 0; border: 1px solid var(--line);
       border-radius: 12px; background: white;
     }
     .empty-report { display: none; color: var(--muted); padding: 18px; text-align: center; }
     footer { color: var(--muted); font-size: 12px; padding-top: 24px; margin-top: auto; text-align: center; }
     @media (max-width: 820px) {
       main { padding-top: 34px; }
-      .upload-grid, .changes { grid-template-columns: 1fr; }
+      .upload-grid { grid-template-columns: 1fr; }
       .option-grid { grid-template-columns: 1fr 1fr; }
       .history-item { grid-template-columns: 1fr; }
       .history-actions { justify-content: flex-start; }
-      .result-head { display: block; }
-      .result-head .actions { margin-top: 12px; }
       .report-frame { min-height: 640px; }
     }
     @media (max-width: 520px) {
       .topbar { padding: 0 16px; }
       .offline { display: none; }
       main { width: min(100% - 24px, 1180px); }
-      .option-grid, .stats { grid-template-columns: 1fr; }
+      .option-grid { grid-template-columns: 1fr; }
       h1 { font-size: 34px; }
     }
   </style>
@@ -216,11 +207,14 @@
 <body>
   <header class="topbar">
     <div class="brand"><span class="brand-mark">SD</span><span>电子原理图PDF差异扫描</span></div>
-    <div class="offline"><span class="dot"></span>本机离线处理</div>
+    <div class="topbar-actions">
+      <button class="secondary topbar-back" id="globalBackButton" type="button" hidden>返回比对页</button>
+      <div class="offline"><span class="dot"></span>本机离线处理</div>
+    </div>
   </header>
 
   <main>
-    <section class="hero">
+    <section class="hero" id="heroSection">
       <div class="eyebrow">Schematic Revision Review</div>
       <p>上传旧版和新版 PDF。系统会在本机完成页面配对、文字与图形比对，自动圈出元件值、网络标号、连线和符号变化。</p>
     </section>
@@ -301,29 +295,8 @@
     </section>
 
     <section class="result" id="resultPanel">
-      <div class="result-head">
-        <div>
-          <div class="eyebrow">Comparison Result</div>
-          <h2>比对完成</h2>
-          <p id="resultSubtitle"></p>
-        </div>
-        <div class="actions">
-          <button class="secondary" id="backToUpload" type="button">返回比对页</button>
-          <a class="primary" id="reportLink" target="_blank" rel="noopener">打开完整报告</a>
-          <a class="secondary" id="pdfLink" target="_blank" rel="noopener">审阅 PDF</a>
-        </div>
-      </div>
-      <div class="stats">
-        <div class="stat"><b id="statPages">0</b><span>变更页</span></div>
-        <div class="stat"><b id="statChanges">0</b><span>审阅项</span></div>
-        <div class="stat"><b id="statMatched">0</b><span>配对页</span></div>
-      </div>
-      <div class="changes" id="changeList"></div>
       <iframe class="report-frame" id="reportFrame" title="完整离线比对报告"></iframe>
       <div class="empty-report">本次没有发现内容变化。</div>
-      <div class="actions">
-        <button class="secondary" id="restartButton" type="button">开始新的比对</button>
-      </div>
     </section>
 
     <footer>Schematic PDF Diff · 本地处理 · 不调用云 OCR 或在线 API</footer>
@@ -346,6 +319,8 @@
     const resultPanel = document.getElementById('resultPanel');
     const reportFrame = document.getElementById('reportFrame');
     const emptyReport = document.querySelector('.empty-report');
+    const heroSection = document.getElementById('heroSection');
+    const globalBackButton = document.getElementById('globalBackButton');
     let currentJob = null;
     let polling = null;
 
@@ -514,26 +489,6 @@
       polling = setInterval(() => findJob().catch(error => showError(error.message)), 900);
     }
 
-    function showUploadView({ resetForm = false } = {}) {
-      if (polling) clearInterval(polling);
-      polling = null;
-      currentJob = null;
-      resultPanel.style.display = 'none';
-      reportFrame.src = 'about:blank';
-      uploadPanel.style.display = 'block';
-      historyPanel.style.display = 'block';
-      if (resetForm) {
-        form.reset();
-        setFile(oldInput, 'oldName', 'dropOld');
-        setFile(newInput, 'newName', 'dropNew');
-        progressWrap.style.display = 'none';
-        progressBar.style.width = '0';
-        clearError();
-      }
-      refreshHistory();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
     async function findJob() {
       const response = await fetch(`${BASE_PATH}/api/jobs/${currentJob}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('服务未找到当前任务。');
@@ -557,33 +512,34 @@
 
     function showResult(job) {
       currentJob = job.job_id;
+      document.body.classList.add('result-mode');
+      globalBackButton.hidden = false;
       uploadPanel.style.display = 'none';
       historyPanel.style.display = 'none';
       resultPanel.style.display = 'block';
-      document.getElementById('statPages').textContent = job.summary.changed_pages;
-      document.getElementById('statChanges').textContent = job.summary.change_count;
-      document.getElementById('statMatched').textContent = job.summary.matched_pages;
-      document.getElementById('resultSubtitle').textContent =
-        `${job.old_name} → ${job.new_name}`;
-      const list = document.getElementById('changeList');
-      list.innerHTML = '';
-      (job.changes || []).forEach(change => {
-        const item = document.createElement('div');
-        item.className = 'change';
-        item.innerHTML = `<b>${escapeHtml(change.title)}</b><small>第 ${change.page} 页 · ${escapeHtml(change.type)}</small>`;
-        list.append(item);
-      });
-      const reportUrl = job.links.report;
-      document.getElementById('reportLink').href = reportUrl;
-      document.getElementById('pdfLink').href = job.links.pdf;
       if ((job.changes || []).length) {
-        reportFrame.src = reportUrl;
+        reportFrame.src = job.links.report;
         reportFrame.style.display = 'block';
         emptyReport.style.display = 'none';
       } else {
         reportFrame.style.display = 'none';
         emptyReport.style.display = 'block';
       }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function returnToUpload() {
+      if (polling) clearInterval(polling);
+      polling = null;
+      currentJob = null;
+      document.body.classList.remove('result-mode');
+      globalBackButton.hidden = true;
+      resultPanel.style.display = 'none';
+      reportFrame.src = 'about:blank';
+      uploadPanel.style.display = 'block';
+      historyPanel.style.display = 'block';
+      heroSection.style.display = '';
+      refreshHistory();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -635,9 +591,8 @@
       xhr.send(data);
     });
 
-    document.getElementById('backToUpload').addEventListener('click', () => showUploadView());
-    document.getElementById('restartButton').addEventListener('click', () => showUploadView({ resetForm: true }));
     document.getElementById('refreshHistory').addEventListener('click', refreshHistory);
+    globalBackButton.addEventListener('click', returnToUpload);
 
     setupDrop(oldInput, 'oldName', 'dropOld');
     setupDrop(newInput, 'newName', 'dropNew');

@@ -55,6 +55,7 @@
       --shadow: rgba(0, 0, 0, .36);
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     html, body { height: 100%; }
     body {
       margin: 0;
@@ -1138,7 +1139,12 @@
     ) {
       returnButton.hidden = false;
       returnButton.addEventListener('click', () => {
-        window.location.assign(reportPath.slice(0, runsIndex + 1));
+        const appRoot = reportPath.slice(0, runsIndex + 1);
+        if (window.top && window.top !== window) {
+          window.top.location.assign(appRoot);
+        } else {
+          window.location.assign(appRoot);
+        }
       });
     }
     try {

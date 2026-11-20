@@ -42,7 +42,10 @@ def test_web_index_and_health(tmp_path: Path) -> None:
     assert "发现版本差异，直接定位到原理图证据" not in index_html
     assert "job.status === 'rejected'" in index_html
     assert 'id="historyPanel"' in index_html
-    assert 'id="backToUpload"' in index_html
+    assert 'id="globalBackButton"' in index_html
+    assert 'id="changeList"' not in index_html
+    assert 'class="result-head"' not in index_html
+    assert "document.body.classList.add('result-mode')" in index_html
     assert "window.location.assign(job.links.report)" not in index_html
     health = client.get("/api/health")
     assert health.status_code == 200
@@ -158,6 +161,7 @@ def test_web_compares_uploaded_pdfs(tmp_path: Path) -> None:
     assert 'id="backLink"' not in report_html
     assert 'id="returnButton"' in report_html
     assert "返回比对页" in report_html
+    assert "window.top.location.assign" in report_html
     assert 'id="zoomOut"' not in report_html
     assert "addEventListener('wheel'" in report_html
     assert 'before_page_detail_image' in report_html
