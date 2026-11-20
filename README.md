@@ -106,6 +106,23 @@ SCHEMADIFF_WEB_OUTPUT=/path/to/output \
 ./scripts/stop_web.sh
 ```
 
+## 桌面版
+
+Windows 和 macOS 发布包会启动原生窗口并自动连接随机本地端口，不需要手动打开浏览器。
+
+- Windows：`ElectronicSchematicPdfDiff.exe`
+- macOS：`Electronic Schematic PDF Diff.app`
+- 本地数据位置、签名说明和构建命令见 [桌面版说明](docs/desktop.md)。
+
+桌面版构建：
+
+```bash
+uv pip install --python .venv/bin/python -e ".[desktop,build]"
+.venv/bin/python scripts/build_desktop.py
+```
+
+GitHub Actions 同时构建 Windows x64、macOS Intel 和 macOS Apple Silicon 版本。
+
 ## 输出
 
 ```text

@@ -21,6 +21,9 @@ logs/
 tmp/
 output/
 vendor/wheels/
+build/
+dist/
+release/
 
 # Local benchmark material is intentionally not distributed.
 benchmarks/sample_v1_1_mapping.json

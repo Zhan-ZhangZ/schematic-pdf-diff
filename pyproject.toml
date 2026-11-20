@@ -20,10 +20,17 @@ dev = [
   "pytest>=8",
   "reportlab>=4",
 ]
+desktop = [
+  "pywebview==6.2.1",
+]
+build = [
+  "pyinstaller==6.22.3",
+]
 
 [project.scripts]
 schemadiff = "schemadiff.cli:main"
 schemadiff-web = "schemadiff.webapp:main"
+schemadiff-desktop = "schemadiff.desktop:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -35,3 +42,7 @@ testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/schemadiff"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/schemadiff/web/index.html" = "schemadiff/web/index.html"
+"src/schemadiff/web/report.html" = "schemadiff/web/report.html"
