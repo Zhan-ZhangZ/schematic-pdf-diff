@@ -1,0 +1,38 @@
+.DS_Store
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+
+# Private source material and generated evidence
+*.pdf
+*.xlsx
+*.xls
+*.xlsm
+*.doc
+*.docx
+*.ppt
+*.pptx
+*.jsonl
+*.log
+logs/
+tmp/
+output/
+vendor/wheels/
+
+# Local benchmark material is intentionally not distributed.
+benchmarks/sample_v1_1_mapping.json
+docs/prototype-plan.md
+docs/implementation-notes.md
+docs/zh/
+tests/test_integration_sample.py
+scripts/build_reports.py
+
+# Local secrets and machine state
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/

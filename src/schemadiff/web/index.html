@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <title>电子原理图PDF差异扫描</title>
+  <style>
+    :root {
+      --ink: #17212b;
+      --muted: #66727f;
+      --line: #d8dee5;
+      --bg: #f3f6f8;
+      --panel: #ffffff;
+      --navy: #17324d;
+      --blue: #2267a8;
+      --blue-soft: #e7f0f8;
+      --green: #0c6b58;
+      --green-soft: #e9f5f1;
+      --red: #b83b31;
+      --red-soft: #fbefed;
+      --shadow: 0 18px 50px rgba(24, 45, 66, 0.09);
+    }
+    * { box-sizing: border-box; }
+    html { min-height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(34, 103, 168, 0.10), transparent 28rem),
+        linear-gradient(180deg, #f8fafb 0%, var(--bg) 100%);
+      font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    button, input, select { font: inherit; }
+    .topbar {
+      height: 66px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 clamp(18px, 4vw, 56px);
+      background: rgba(255, 255, 255, 0.92);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 700; letter-spacing: .01em; }
+    .brand-mark {
+      width: 30px; height: 30px; border-radius: 9px; background: var(--navy);
+      color: white; display: grid; place-items: center; font-size: 13px; font-weight: 800;
+    }
+    .offline {
+      display: inline-flex; align-items: center; gap: 7px; color: var(--green);
+      background: var(--green-soft); border: 1px solid #c7e2d8;
+      border-radius: 999px; padding: 6px 11px; font-size: 12px; font-weight: 650;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #1a8e73; }
+    main {
+      width: min(1180px, calc(100% - 36px));
+      min-height: calc(100vh - 66px);
+      margin: 0 auto;
+      padding: 56px 0 40px;
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+    }
+    .hero { max-width: 760px; margin-bottom: 30px; }
+    .eyebrow { color: var(--blue); font-weight: 700; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { font-size: clamp(32px, 5vw, 56px); line-height: 1.08; letter-spacing: -0.035em; margin: 12px 0 16px; }
+    .hero p { color: var(--muted); font-size: 16px; max-width: 700px; margin: 0; }
+    .hero .eyebrow + p { margin-top: 10px; }
+    .panel {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+      box-shadow: var(--shadow); padding: clamp(18px, 3vw, 30px);
+    }
+    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .drop {
+      min-height: 190px; border: 1.5px dashed #b8c6d4; border-radius: 14px;
+      background: #fbfcfd; padding: 22px; cursor: pointer; position: relative;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; transition: border-color .18s, background .18s, transform .18s;
+    }
+    .drop:hover, .drop.dragover { border-color: var(--blue); background: var(--blue-soft); }
+    .drop.has-file { border-style: solid; border-color: #a9cbbf; background: var(--green-soft); }
+    .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .side-index {
+      width: 38px; height: 38px; border-radius: 11px; background: var(--navy);
+      color: white; display: grid; place-items: center; font-weight: 750; margin-bottom: 13px;
+    }
+    .drop strong { font-size: 17px; }
+    .drop .hint { color: var(--muted); font-size: 12px; margin-top: 5px; }
+    .file-name {
+      max-width: 100%; margin-top: 14px; padding: 7px 10px; background: rgba(255,255,255,.75);
+      border: 1px solid rgba(118, 139, 157, .22); border-radius: 8px; font-size: 12px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: none;
+    }
+    .drop.has-file .file-name { display: block; }
+    .options {
+      margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px;
+    }
+    .options summary { cursor: pointer; color: var(--ink); font-weight: 650; width: fit-content; }
+    .option-grid {
+      display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 12px; margin-top: 14px;
+    }
+    label.field { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+    select {
+      width: 100%; border: 1px solid var(--line); border-radius: 9px; background: white;
+      color: var(--ink); padding: 9px 10px;
+    }
+    .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 20px; }
+    .primary {
+      border: 0; border-radius: 10px; padding: 11px 18px; background: var(--navy); color: white;
+      cursor: pointer; font-weight: 700; box-shadow: 0 8px 18px rgba(23,50,77,.18);
+    }
+    .primary:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+    .secondary {
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--line); border-radius: 10px; padding: 10px 15px;
+      color: var(--ink); background: white; text-decoration: none; cursor: pointer; font-weight: 650;
+    }
+    .note { color: var(--muted); font-size: 12px; }
+    .progress-wrap { margin-top: 20px; display: none; }
+    .progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .progress-head strong { font-size: 13px; }
+    .progress-head span { color: var(--muted); font-size: 12px; }
+    .progress-track { height: 9px; border-radius: 999px; background: #e4e9ed; overflow: hidden; }
+    .progress-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--blue), #4f91c5); transition: width .3s; }
+    .error {
+      display: none; margin-top: 16px; padding: 12px 14px; border-radius: 10px;
+      color: var(--red); background: var(--red-soft); border: 1px solid #efc9c4;
+    }
+    .result { display: none; margin-top: 28px; }
+    .result-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
+    .result-head h2 { margin: 0 0 5px; font-size: 25px; }
+    .result-head p { margin: 0; color: var(--muted); }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .stat { border: 1px solid var(--line); border-radius: 12px; padding: 15px; background: #fafbfc; }
+    .stat b { font-size: 27px; display: block; line-height: 1.1; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .changes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+    .change {
+      border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 10px;
+      padding: 11px 13px; background: white;
+    }
+    .change:hover { background: #fbfdff; }
+    .change b { display: block; margin-bottom: 3px; }
+    .change small { color: var(--muted); }
+    .report-frame {
+      width: 100%; min-height: 760px; margin-top: 22px; border: 1px solid var(--line);
+      border-radius: 12px; background: white;
+    }
+    .empty-report { display: none; color: var(--muted); padding: 18px; text-align: center; }
+    footer { color: var(--muted); font-size: 12px; padding-top: 24px; margin-top: auto; text-align: center; }
+    @media (max-width: 820px) {
+      main { padding-top: 34px; }
+      .upload-grid, .changes { grid-template-columns: 1fr; }
+      .option-grid { grid-template-columns: 1fr 1fr; }
+      .result-head { display: block; }
+      .result-head .actions { margin-top: 12px; }
+      .report-frame { min-height: 640px; }
+    }
+    @media (max-width: 520px) {
+      .topbar { padding: 0 16px; }
+      .offline { display: none; }
+      main { width: min(100% - 24px, 1180px); }
+      .option-grid, .stats { grid-template-columns: 1fr; }
+      h1 { font-size: 34px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">SD</span><span>电子原理图PDF差异扫描</span></div>
+    <div class="offline"><span class="dot"></span>本机离线处理</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow">Schematic Revision Review</div>
+      <p>上传旧版和新版 PDF。系统会在本机完成页面配对、文字与图形比对，自动圈出元件值、网络标号、连线和符号变化。</p>
+    </section>
+
+    <section class="panel" id="uploadPanel">
+      <form id="compareForm">
+        <div class="upload-grid">
+          <label class="drop" id="dropOld">
+            <input id="oldFile" name="old" type="file" accept="application/pdf,.pdf">
+            <span class="side-index">A</span>
+            <strong>旧版 PDF</strong>
+            <span class="hint">拖放文件到这里，或点击选择</span>
+            <span class="file-name" id="oldName">尚未选择</span>
+          </label>
+          <label class="drop" id="dropNew">
+            <input id="newFile" name="new" type="file" accept="application/pdf,.pdf">
+            <span class="side-index">B</span>
+            <strong>新版 PDF</strong>
+            <span class="hint">拖放文件到这里，或点击选择</span>
+            <span class="file-name" id="newName">尚未选择</span>
+          </label>
+        </div>
+
+        <details class="options">
+          <summary>处理选项</summary>
+          <div class="option-grid">
+            <label class="field">比较分辨率
+              <select name="dpi">
+                <option value="150">150 DPI 快速</option>
+                <option value="180" selected>180 DPI 标准</option>
+                <option value="220">220 DPI 精细</option>
+              </select>
+            </label>
+            <label class="field">页面配准
+              <select name="alignment">
+                <option value="auto" selected>自动平移</option>
+                <option value="affine">仿射配准（扫描件）</option>
+                <option value="off">不配准</option>
+              </select>
+            </label>
+            <label class="field">OCR 模式
+              <select name="ocr">
+                <option value="auto" selected>自动识别扫描页</option>
+                <option value="always">始终识别</option>
+                <option value="never">不识别</option>
+              </select>
+            </label>
+            <label class="field">OCR 语言
+              <select name="ocr_language">
+                <option value="eng" selected>英文原理图标签</option>
+                <option value="eng+chi_sim">英文与简体中文</option>
+              </select>
+            </label>
+          </div>
+        </details>
+
+        <div class="actions">
+          <button class="primary" id="startButton" type="submit" disabled>开始比对</button>
+          <span class="note">仅接受 PDF，单个文件不超过 250 MB。文件不会上传到外部网络。</span>
+        </div>
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-head"><strong id="progressLabel">准备上传</strong><span id="progressPercent">0%</span></div>
+          <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+        </div>
+        <div class="error" id="errorBox"></div>
+      </form>
+    </section>
+
+    <section class="result" id="resultPanel">
+      <div class="result-head">
+        <div>
+          <div class="eyebrow">Comparison Result</div>
+          <h2>比对完成</h2>
+          <p id="resultSubtitle"></p>
+        </div>
+        <div class="actions">
+          <a class="primary" id="reportLink" target="_blank" rel="noopener">打开完整报告</a>
+          <a class="secondary" id="pdfLink" target="_blank" rel="noopener">审阅 PDF</a>
+          <a class="secondary" id="downloadLink">下载结果 ZIP</a>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="statPages">0</b><span>变更页</span></div>
+        <div class="stat"><b id="statChanges">0</b><span>审阅项</span></div>
+        <div class="stat"><b id="statMatched">0</b><span>配对页</span></div>
+      </div>
+      <div class="changes" id="changeList"></div>
+      <iframe class="report-frame" id="reportFrame" title="完整离线比对报告"></iframe>
+      <div class="empty-report">本次没有发现内容变化。</div>
+      <div class="actions">
+        <button class="secondary" id="restartButton" type="button">开始新的比对</button>
+      </div>
+    </section>
+
+    <footer>Schematic PDF Diff · 本地处理 · 不调用云 OCR 或在线 API</footer>
+  </main>
+
+  <script>
+    const BASE_PATH = "__BASE_PATH__";
+    const form = document.getElementById('compareForm');
+    const oldInput = document.getElementById('oldFile');
+    const newInput = document.getElementById('newFile');
+    const startButton = document.getElementById('startButton');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressLabel = document.getElementById('progressLabel');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    const errorBox = document.getElementById('errorBox');
+    const uploadPanel = document.getElementById('uploadPanel');
+    const resultPanel = document.getElementById('resultPanel');
+    const reportFrame = document.getElementById('reportFrame');
+    const emptyReport = document.querySelector('.empty-report');
+    let currentJob = null;
+    let polling = null;
+
+    function escapeHtml(value) {
+      const div = document.createElement('div');
+      div.textContent = value == null ? '' : String(value);
+      return div.innerHTML;
+    }
+
+    function updateReady() {
+      startButton.disabled = !(oldInput.files.length && newInput.files.length);
+    }
+
+    function setFile(input, nameId, cardId) {
+      const card = document.getElementById(cardId);
+      const name = document.getElementById(nameId);
+      const file = input.files[0];
+      card.classList.toggle('has-file', Boolean(file));
+      name.textContent = file ? `${file.name} · ${formatSize(file.size)}` : '尚未选择';
+      updateReady();
+    }
+
+    function setupDrop(input, nameId, cardId) {
+      const card = document.getElementById(cardId);
+      ['dragenter', 'dragover'].forEach(type => card.addEventListener(type, event => {
+        event.preventDefault();
+        card.classList.add('dragover');
+      }));
+      ['dragleave', 'drop'].forEach(type => card.addEventListener(type, event => {
+        event.preventDefault();
+        card.classList.remove('dragover');
+      }));
+      card.addEventListener('drop', event => {
+        const files = event.dataTransfer.files;
+        if (!files.length) return;
+        if (!files[0].name.toLowerCase().endsWith('.pdf')) {
+          showError('请选择 PDF 文件。');
+          return;
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(files[0]);
+        input.files = transfer.files;
+        setFile(input, nameId, cardId);
+      });
+      input.addEventListener('change', () => setFile(input, nameId, cardId));
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function setProgress(label, percent) {
+      progressWrap.style.display = 'block';
+      progressLabel.textContent = label;
+      const value = Math.max(0, Math.min(100, Math.round(percent)));
+      progressBar.style.width = `${value}%`;
+      progressPercent.textContent = `${value}%`;
+    }
+
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.style.display = 'block';
+    }
+
+    function clearError() {
+      errorBox.textContent = '';
+      errorBox.style.display = 'none';
+    }
+
+    async function findJob() {
+      const response = await fetch(`${BASE_PATH}/api/jobs/${currentJob}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error('服务未找到当前任务。');
+      const job = await response.json();
+      if (job.status === 'complete') {
+        clearInterval(polling);
+        setProgress('比对完成', 100);
+        showResult(job);
+      } else if (job.status === 'error' || job.status === 'rejected') {
+        clearInterval(polling);
+        startButton.disabled = false;
+        setProgress(job.status === 'rejected' ? '文件不匹配，已拦截' : '处理失败', 100);
+        showError(job.error || '处理失败，请查看服务日志。');
+      } else {
+        setProgress(job.phase_label || '处理中', job.progress || 0);
+      }
+    }
+
+    function showResult(job) {
+      if (job.links && job.links.report) {
+        window.location.assign(job.links.report);
+        return;
+      }
+      uploadPanel.style.display = 'none';
+      resultPanel.style.display = 'block';
+      document.getElementById('statPages').textContent = job.summary.changed_pages;
+      document.getElementById('statChanges').textContent = job.summary.change_count;
+      document.getElementById('statMatched').textContent = job.summary.matched_pages;
+      document.getElementById('resultSubtitle').textContent =
+        `${job.old_name} → ${job.new_name}`;
+      const list = document.getElementById('changeList');
+      list.innerHTML = '';
+      (job.changes || []).forEach(change => {
+        const item = document.createElement('div');
+        item.className = 'change';
+        item.innerHTML = `<b>${escapeHtml(change.title)}</b><small>第 ${change.page} 页 · ${escapeHtml(change.type)}</small>`;
+        list.append(item);
+      });
+      const reportUrl = job.links.report;
+      document.getElementById('reportLink').href = reportUrl;
+      document.getElementById('pdfLink').href = job.links.pdf;
+      document.getElementById('downloadLink').href = job.links.download;
+      if ((job.changes || []).length) {
+        reportFrame.src = reportUrl;
+        reportFrame.style.display = 'block';
+        emptyReport.style.display = 'none';
+      } else {
+        reportFrame.style.display = 'none';
+        emptyReport.style.display = 'block';
+      }
+      resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      clearError();
+      if (!oldInput.files.length || !newInput.files.length) {
+        showError('请同时选择旧版和新版 PDF。');
+        return;
+      }
+      const files = [oldInput.files[0], newInput.files[0]];
+      if (files.some(file => !file.name.toLowerCase().endsWith('.pdf'))) {
+        showError('请选择 PDF 文件。');
+        return;
+      }
+      if (files.some(file => file.size > 250 * 1024 * 1024)) {
+        showError('单个 PDF 不能超过 250 MB。');
+        return;
+      }
+      startButton.disabled = true;
+      resultPanel.style.display = 'none';
+      setProgress('正在上传', 1);
+      const data = new FormData(form);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${BASE_PATH}/api/jobs`);
+      xhr.upload.onprogress = event => {
+        if (event.lengthComputable) {
+          setProgress('正在上传文件', 2 + 38 * event.loaded / event.total);
+        }
+      };
+      xhr.onerror = () => {
+        startButton.disabled = false;
+        showError('无法连接本地处理服务。');
+      };
+      xhr.onload = () => {
+        let payload;
+        try { payload = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status < 200 || xhr.status >= 300) {
+          startButton.disabled = false;
+          showError(payload && payload.error ? payload.error : '提交处理任务失败。');
+          return;
+        }
+        currentJob = payload.job_id;
+        setProgress('任务已提交', 45);
+        findJob().catch(error => showError(error.message));
+        polling = setInterval(() => findJob().catch(error => showError(error.message)), 900);
+      };
+      xhr.send(data);
+    });
+
+    document.getElementById('restartButton').addEventListener('click', () => {
+      if (polling) clearInterval(polling);
+      currentJob = null;
+      form.reset();
+      setFile(oldInput, 'oldName', 'dropOld');
+      setFile(newInput, 'newName', 'dropNew');
+      progressWrap.style.display = 'none';
+      progressBar.style.width = '0';
+      resultPanel.style.display = 'none';
+      uploadPanel.style.display = 'block';
+      clearError();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    setupDrop(oldInput, 'oldName', 'dropOld');
+    setupDrop(newInput, 'newName', 'dropNew');
+  </script>
+</body>
+</html>

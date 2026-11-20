@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: file:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>原理图修订比对报告</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f2f3f3;
+      --panel: #ffffff;
+      --panel-2: #f7f8f8;
+      --ink: #111111;
+      --muted: #62686c;
+      --line: #8f9698;
+      --line-soft: #c7ccce;
+      --button: #eeeeee;
+      --button-active: #0a8f3c;
+      --button-active-text: #ffffff;
+      --selected: #c9f4ce;
+      --selected-ink: #092f15;
+      --hover: #e7f1fa;
+      --header: #c9cbcc;
+      --table-alt: #f5f6f6;
+      --old: #a5362d;
+      --new: #176aa0;
+      --warning: #805c10;
+      --canvas-grid: #e8ebec;
+      --focus: #174c74;
+      --shadow: rgba(0, 0, 0, .16);
+    }
+    body.dark {
+      color-scheme: dark;
+      --bg: #252c30;
+      --panel: #2d3539;
+      --panel-2: #313b40;
+      --ink: #eeeeee;
+      --muted: #b5bdc1;
+      --line: #777f83;
+      --line-soft: #4c565b;
+      --button: #c3b7b5;
+      --button-active: #b33bb3;
+      --button-active-text: #ffffff;
+      --selected: #226022;
+      --selected-ink: #f2fff2;
+      --hover: #344750;
+      --header: #3b4749;
+      --table-alt: #313b40;
+      --old: #ff8f83;
+      --new: #79bcf0;
+      --warning: #e4bc67;
+      --canvas-grid: #333d42;
+      --focus: #9bd0f5;
+      --shadow: rgba(0, 0, 0, .36);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Verdana, "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px;
+    }
+    button, input, select, a { font: inherit; }
+    button, a.tool-button {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      background: var(--button);
+      color: #111;
+      border-radius: 4px;
+      padding: 0 11px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      line-height: 1;
+      transition: background .15s, color .15s;
+    }
+    body.dark button {
+      color: #111;
+    }
+    button:hover, a.tool-button:hover { filter: brightness(.96); }
+    button.active, a.tool-button.active {
+      background: var(--button-active);
+      color: var(--button-active-text);
+      border-color: var(--button-active);
+    }
+    button:focus-visible, a:focus-visible, input:focus-visible, tr:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 1px;
+    }
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+    }
+    .toolbar {
+      min-height: 64px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-right: 5px;
+      min-width: 230px;
+    }
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      background: #0f3b28;
+      color: #fff;
+      border: 1px solid #071e14;
+      border-radius: 5px;
+      font: 800 12px/1 Verdana, sans-serif;
+      letter-spacing: -.04em;
+    }
+    .brand-title { font-weight: 800; letter-spacing: -.02em; }
+    .brand-sub {
+      display: block;
+      max-width: 330px;
+      color: var(--muted);
+      font-size: 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+    .tool-group {
+      display: inline-flex;
+      gap: 0;
+      align-items: center;
+    }
+    .tool-group button, .tool-group a.tool-button {
+      border-right-width: 0;
+      border-radius: 0;
+      min-width: 46px;
+    }
+    .tool-group > :first-child {
+      border-top-left-radius: 5px;
+      border-bottom-left-radius: 5px;
+    }
+    .tool-group > :last-child {
+      border-right-width: 1px;
+      border-top-right-radius: 5px;
+      border-bottom-right-radius: 5px;
+    }
+    .toolbar-spacer { flex: 1; }
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+    }
+    .metric {
+      border: 1px solid var(--line-soft);
+      background: var(--panel-2);
+      border-radius: 4px;
+      min-height: 40px;
+      min-width: 82px;
+      padding: 5px 9px;
+    }
+    .metric b {
+      display: block;
+      font: 800 17px/1 Verdana, sans-serif;
+      color: var(--ink);
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 9px;
+      margin-top: 3px;
+      white-space: nowrap;
+    }
+    .file-strip {
+      display: flex;
+      align-items: stretch;
+      min-height: 43px;
+      background: var(--panel-2);
+      border-bottom: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .file-band { min-width: 0; }
+    .file-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      min-width: 0;
+      flex: 1;
+    }
+    .file-chip + .file-chip { border-left: 1px solid var(--line-soft); }
+    .revision {
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 2px 6px;
+      background: var(--panel);
+      font: 800 10px/1.4 Consolas, Menlo, monospace;
+      flex: none;
+    }
+    .file-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-arrow {
+      flex: none;
+      color: var(--muted);
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      padding: 0 3px;
+    }
+    .identity-warning {
+      padding: 8px 12px;
+      border-bottom: 1px solid #d8b95c;
+      background: #fff4c9;
+      color: #5f4709;
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .identity-warning[hidden] { display: none; }
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(440px, 43%) minmax(0, 57%);
+      gap: 0;
+    }
+    .workspace.stacked {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(300px, 42%) minmax(360px, 58%);
+    }
+    .table-panel {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .workspace.stacked .table-panel {
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .table-tools {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-2);
+    }
+    .search {
+      height: 40px;
+      min-width: 170px;
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      color: var(--ink);
+      background: var(--panel);
+      padding: 0 12px;
+    }
+    .search::placeholder { color: var(--muted); }
+    .filter-group { display: inline-flex; }
+    .filter-group button {
+      min-width: 55px;
+      border-right-width: 0;
+      border-radius: 0;
+      padding: 0 10px;
+    }
+    .filter-group button:first-child {
+      border-top-left-radius: 4px;
+      border-bottom-left-radius: 4px;
+    }
+    .filter-group button:last-child {
+      border-right-width: 1px;
+      border-top-right-radius: 4px;
+      border-bottom-right-radius: 4px;
+    }
+    .table-scroller {
+      overflow: auto;
+      min-height: 0;
+      background:
+        linear-gradient(var(--canvas-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .diff-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-family: Consolas, Menlo, Monaco, monospace;
+      font-size: 11px;
+      background: var(--panel);
+    }
+    .diff-table th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--header);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 9px 6px;
+      text-align: left;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .diff-table td {
+      border: 1px solid var(--line-soft);
+      padding: 8px 6px;
+      vertical-align: top;
+      word-break: break-word;
+    }
+    .diff-table tr:nth-child(even) td { background: var(--table-alt); }
+    .diff-table tbody tr { cursor: pointer; }
+    .diff-table tbody tr:hover td { background: var(--hover); }
+    .diff-table tbody tr.selected td {
+      background: var(--selected);
+      color: var(--selected-ink);
+    }
+    .diff-table .col-index { width: 42px; text-align: center; }
+    .diff-table .col-page { width: 52px; text-align: center; }
+    .diff-table .col-type { width: 91px; }
+    .diff-table .col-item { width: 112px; }
+    .diff-table .col-diff { min-width: 172px; }
+    .diff-table .col-confidence { width: 60px; text-align: center; }
+    .change-text { display: grid; gap: 2px; }
+    .change-text .before { color: var(--old); }
+    .change-text .after { color: var(--new); }
+    .empty-row td {
+      text-align: center;
+      color: var(--muted);
+      padding: 28px 12px;
+    }
+    .table-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 11px;
+      background: var(--panel-2);
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .viewer {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      background: var(--panel-2);
+    }
+    .viewer-head {
+      padding: 13px 15px 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .viewer-kicker {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .viewer-title {
+      margin: 3px 0 4px;
+      font-size: 20px;
+      line-height: 1.28;
+      letter-spacing: -.02em;
+    }
+    .viewer-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 12px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .viewer-meta code {
+      color: var(--ink);
+      font: 700 11px/1.4 Consolas, Menlo, monospace;
+    }
+    .confidence {
+      flex: none;
+      min-width: 65px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 6px 8px;
+      text-align: center;
+      background: var(--panel-2);
+      font: 800 16px/1 Verdana, sans-serif;
+    }
+    .confidence span {
+      display: block;
+      font: 9px/1.2 Verdana, sans-serif;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .canvas {
+      min-height: 0;
+      overflow: hidden;
+      padding: 16px;
+      background:
+        linear-gradient(var(--canvas-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
+      background-size: 24px 24px;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+    .canvas.dragging {
+      cursor: grabbing;
+    }
+    .view-grid {
+      display: grid;
+      gap: 14px;
+      align-items: start;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+    .view-grid.single { grid-template-columns: minmax(0, 1fr); }
+    .view-grid.double { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .view-card {
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: 0 7px 18px var(--shadow);
+    }
+    .view-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 36px;
+      padding: 7px 9px;
+      border-bottom: 1px solid var(--line);
+      background: var(--header);
+      font-weight: 800;
+    }
+    .view-card-head small {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 600;
+    }
+    .view-card img {
+      display: block;
+      height: auto;
+      width: 100%;
+      max-width: 100%;
+      background: #fff;
+      image-rendering: auto;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .empty-view {
+      border: 1px dashed var(--line);
+      background: var(--panel);
+      padding: 44px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .viewer-foot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 8px 11px;
+      border-top: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .viewer-foot .spacer { flex: 1; }
+    .zoom-value { min-width: 48px; text-align: center; font: 800 11px/1 Consolas, monospace; color: var(--ink); }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      background: #111;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 9px 13px;
+      border-radius: 4px;
+      font-size: 11px;
+      transition: opacity .18s, transform .18s;
+      z-index: 50;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    @media print {
+      body { overflow: visible; background: #fff; color: #000; }
+      .toolbar, .table-tools, .table-footer, .viewer-foot, .toast { display: none !important; }
+      .app { display: block; height: auto; }
+      .workspace { display: block; }
+      .table-panel, .viewer { min-height: 0; border: 0; }
+      .table-scroller, .canvas { overflow: visible; }
+      .canvas { background: #fff; }
+      .diff-table th { position: static; }
+      .view-card { break-inside: avoid; box-shadow: none; }
+    }
+    @media (max-width: 980px) {
+      body { overflow: auto; }
+      .app { height: auto; min-height: 100%; }
+      .workspace { grid-template-columns: 1fr; grid-template-rows: auto auto; }
+      .table-panel { min-height: 440px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .viewer { min-height: 620px; }
+      .toolbar-spacer { display: none; }
+      .summary { width: 100%; }
+      .diff-table .col-item { width: 92px; }
+      .diff-table .col-type { width: 82px; }
+    }
+    @media (max-width: 640px) {
+      .toolbar { align-items: flex-start; }
+      .brand { width: 100%; }
+      .workspace.stacked { grid-template-rows: auto auto; }
+      .view-grid.double { grid-template-columns: 1fr; }
+      .viewer { min-height: 560px; }
+      .file-strip { flex-direction: column; }
+      .file-chip + .file-chip { border-left: 0; border-top: 1px solid var(--line-soft); }
+      .file-arrow { display: none; }
+      .diff-table { min-width: 570px; }
+      .viewer-head { display: block; }
+      .confidence { margin-top: 8px; width: 74px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="toolbar">
+      <div class="brand">
+        <div class="brand-mark">PDF<br>DIFF</div>
+        <div>
+          <div class="brand-title">原理图差异检查</div>
+          <span class="brand-sub" id="filePair"></span>
+        </div>
+      </div>
+
+      <div class="summary" aria-label="比对摘要">
+        <div class="metric"><b id="metricPages">0</b><span>变更页</span></div>
+        <div class="metric"><b id="metricChanges">0</b><span>审阅项</span></div>
+        <div class="metric"><b id="metricMatched">0</b><span>配对页</span></div>
+      </div>
+
+      <div class="tool-group" role="group" aria-label="查看模式">
+        <button type="button" data-mode="evidence" class="active">差异</button>
+        <button type="button" data-mode="old">旧页</button>
+        <button type="button" data-mode="new">新页</button>
+        <button type="button" data-mode="both">双页</button>
+      </div>
+      <div class="tool-group" role="group" aria-label="布局">
+        <button type="button" id="layoutSplit" class="active" title="左右布局">左右</button>
+        <button type="button" id="layoutStack" title="上下布局">上下</button>
+      </div>
+
+      <div class="toolbar-spacer"></div>
+      <button type="button" id="themeButton" title="切换明暗主题">暗色</button>
+      <button type="button" id="printReport">打印</button>
+      <button type="button" id="downloadJson">JSON</button>
+      <button type="button" id="downloadHtml">HTML</button>
+    </header>
+
+    <div class="file-band">
+      <div class="file-strip" aria-label="比较文件">
+        <div class="file-chip"><span class="revision">OLD</span><span class="file-name" id="oldName"></span></div>
+        <span class="file-arrow">→</span>
+        <div class="file-chip"><span class="revision">NEW</span><span class="file-name" id="newName"></span></div>
+      </div>
+      <div class="identity-warning" id="identityWarning" hidden></div>
+    </div>
+
+    <div class="workspace" id="workspace">
+      <section class="table-panel" aria-label="差异列表">
+        <div class="table-tools">
+          <input class="search" id="searchInput" type="search" placeholder="搜索位号、网络或变更" autocomplete="off">
+          <div class="filter-group" role="group" aria-label="差异类型">
+            <button type="button" data-filter="all" class="active">全部</button>
+            <button type="button" data-filter="semantic">元件/网络</button>
+            <button type="button" data-filter="geometry">连线/符号</button>
+          </div>
+        </div>
+        <div class="table-scroller">
+          <table class="diff-table">
+            <thead>
+              <tr>
+                <th class="col-index">#</th>
+                <th class="col-page">页</th>
+                <th class="col-type">类型</th>
+                <th class="col-item">位号 / 网络</th>
+                <th class="col-diff">变更</th>
+                <th class="col-confidence">置信</th>
+              </tr>
+            </thead>
+            <tbody id="changeRows"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span id="rowCount">0 项</span>
+          <span>↑ ↓ 切换变更</span>
+        </div>
+      </section>
+
+      <section class="viewer" aria-label="差异详情">
+        <div class="viewer-head">
+          <div>
+            <div class="viewer-kicker">当前审阅项</div>
+            <h1 class="viewer-title" id="viewerTitle">选择左侧差异</h1>
+            <div class="viewer-meta" id="viewerMeta"></div>
+          </div>
+          <div class="confidence" id="viewerConfidence">—<span>置信度</span></div>
+        </div>
+        <div class="canvas" id="canvas">
+          <div class="empty-view" id="emptyView">没有可显示的差异。</div>
+          <div class="view-grid single" id="viewGrid">
+            <div class="view-card" id="primaryCard" hidden>
+              <div class="view-card-head"><span id="primaryLabel">证据</span><small id="primaryHint"></small></div>
+              <img id="primaryImage" alt="差异证据">
+            </div>
+            <div class="view-card" id="secondaryCard" hidden>
+              <div class="view-card-head"><span id="secondaryLabel">新版页面</span><small id="secondaryHint"></small></div>
+              <img id="secondaryImage" alt="新版页面">
+            </div>
+          </div>
+        </div>
+        <div class="viewer-foot">
+          <span id="viewerFootText">滚轮缩放 · 按住拖动平移 · 双击复位</span>
+          <span class="spacer"></span>
+          <span class="zoom-value" id="zoomValue">100%</span>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const REPORT_DATA = __REPORT_DATA__;
+    const SUMMARY = __SUMMARY__;
+    const OLD_NAME = __OLD_NAME__;
+    const NEW_NAME = __NEW_NAME__;
+
+    const allChanges = [];
+    REPORT_DATA.forEach(page => {
+      page.changes.forEach(change => {
+        const oldPage = change.old_page ?? page.old_page;
+        const newPage = change.new_page ?? page.new_page;
+        const pageLabel = oldPage && newPage && oldPage !== newPage
+          ? `${oldPage} → ${newPage}`
+          : (oldPage || newPage || page.display_page);
+        allChanges.push({
+          ...change,
+          pageNumber: pageLabel,
+          oldPageNumber: oldPage,
+          newPageNumber: newPage,
+          oldPageImage: change.old_page_image || page.before_page_image,
+          newPageImage: change.new_page_image || page.after_page_image,
+          oldPageDetailImage: change.old_page_detail_image || page.before_page_detail_image,
+          newPageDetailImage: change.new_page_detail_image || page.after_page_detail_image
+        });
+      });
+    });
+
+    const state = {
+      selected: allChanges.length ? 0 : -1,
+      filter: 'all',
+      query: '',
+      mode: 'evidence',
+      layout: 'split',
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+      dark: false
+    };
+
+    const elements = {
+      rows: document.getElementById('changeRows'),
+      rowCount: document.getElementById('rowCount'),
+      search: document.getElementById('searchInput'),
+      workspace: document.getElementById('workspace'),
+      title: document.getElementById('viewerTitle'),
+      meta: document.getElementById('viewerMeta'),
+      confidence: document.getElementById('viewerConfidence'),
+      empty: document.getElementById('emptyView'),
+      canvas: document.getElementById('canvas'),
+      grid: document.getElementById('viewGrid'),
+      primaryCard: document.getElementById('primaryCard'),
+      secondaryCard: document.getElementById('secondaryCard'),
+      primaryLabel: document.getElementById('primaryLabel'),
+      secondaryLabel: document.getElementById('secondaryLabel'),
+      primaryHint: document.getElementById('primaryHint'),
+      secondaryHint: document.getElementById('secondaryHint'),
+      primaryImage: document.getElementById('primaryImage'),
+      secondaryImage: document.getElementById('secondaryImage'),
+      foot: document.getElementById('viewerFootText'),
+      zoom: document.getElementById('zoomValue'),
+      toast: document.getElementById('toast'),
+      theme: document.getElementById('themeButton')
+    };
+
+    const TYPE_LABELS = {
+      component_value: '元件值',
+      component_change: '元件变化',
+      component_added: '新增元件',
+      component_removed: '删除元件',
+      net_change: '网络变化',
+      block_move: '电路移动',
+      wire_symbol: '连线/符号',
+      annotation: '注释',
+      page_added: '新增页面',
+      page_removed: '删除页面'
+    };
+
+    function escapeHtml(value) {
+      const node = document.createElement('div');
+      node.textContent = value == null ? '' : String(value);
+      return node.innerHTML;
+    }
+
+    function category(change) {
+      return ['component_value','component_change','component_added','component_removed','net_change','block_move','annotation'].includes(change.change_type)
+        ? 'semantic' : 'geometry';
+    }
+
+    function itemText(change) {
+      const values = [...(change.refdes || []), ...(change.nets || [])];
+      return values.length ? values.join(', ') : '—';
+    }
+
+    function changeText(change) {
+      if (change.change_type === 'block_move') {
+        return escapeHtml(localizedTitle(change));
+      }
+      if (change.before || change.after) {
+        return `<span class="before">${escapeHtml(change.before || '（空）')}</span><span class="after">→ ${escapeHtml(change.after || '（空）')}</span>`;
+      }
+      return escapeHtml(localizedTitle(change));
+    }
+
+    function localizedTitle(change) {
+      const ref = (change.refdes || [])[0];
+      if (change.change_type === 'component_value' && ref) {
+        return `${ref}: ${change.before || '未知值'} → ${change.after || '未知值'}`;
+      }
+      if (change.change_type === 'component_change') {
+        return ref ? `${ref} 元件变化` : '元件变化';
+      }
+      if (change.change_type === 'component_added') {
+        return ref ? `新增 ${ref}` : '新增元件';
+      }
+      if (change.change_type === 'component_removed') {
+        return ref ? `删除 ${ref}` : '删除元件';
+      }
+      if (change.change_type === 'net_change') {
+        if (change.before || change.after) {
+          return `${ref ? ref + ': ' : ''}${change.before || '（空）'} → ${change.after || '（空）'}`;
+        }
+        const nets = (change.nets || []).slice(0, 3);
+        return nets.length ? `网络变化: ${nets.join(', ')}` : '网络变化';
+      }
+      if (change.change_type === 'block_move') {
+        const refs = (change.refdes || []).slice(0, 6);
+        const label = change.oldPageNumber === change.newPageNumber
+          ? `第 ${change.oldPageNumber} 页内`
+          : `第 ${change.oldPageNumber} 页 → 第 ${change.newPageNumber} 页`;
+        return refs.length
+          ? `局部电路移动：${refs.join('、')}（${label}）`
+          : `局部电路移动（${label}）`;
+      }
+      if (change.change_type === 'annotation') {
+        const ref = (change.refdes || [])[0];
+        return ref ? `${ref} 附近注释或符号变化` : '注释或符号变化';
+      }
+      if (change.change_type === 'wire_symbol') {
+        return ref ? `${ref} 附近连线或符号变化` : '连线或符号变化';
+      }
+      return change.title;
+    }
+
+    function isVisible(change) {
+      if (state.filter !== 'all' && category(change) !== state.filter) return false;
+      if (!state.query) return true;
+      const haystack = [
+        change.title,
+        change.before,
+        change.after,
+        change.change_type,
+        ...(change.refdes || []),
+        ...(change.nets || [])
+      ].join(' ').toLowerCase();
+      return haystack.includes(state.query.toLowerCase());
+    }
+
+    function visibleChanges() {
+      return allChanges
+        .map((change, index) => ({ change, index }))
+        .filter(item => isVisible(item.change));
+    }
+
+    function renderTable() {
+      const rows = visibleChanges();
+      if (rows.length && !rows.some(item => item.index === state.selected)) {
+        state.selected = rows[0].index;
+        renderViewer();
+      }
+      elements.rows.innerHTML = '';
+      if (!rows.length) {
+        elements.rows.innerHTML = '<tr class="empty-row"><td colspan="6">当前筛选没有差异项</td></tr>';
+        elements.rowCount.textContent = '0 项';
+        return;
+      }
+      rows.forEach(({change, index}) => {
+        const tr = document.createElement('tr');
+        tr.dataset.index = String(index);
+        tr.tabIndex = 0;
+        tr.setAttribute('aria-selected', index === state.selected ? 'true' : 'false');
+        if (index === state.selected) tr.className = 'selected';
+        tr.innerHTML = `
+          <td class="col-index">${index + 1}</td>
+          <td class="col-page">${change.pageNumber || '—'}</td>
+          <td class="col-type">${escapeHtml(TYPE_LABELS[change.change_type] || change.change_type)}</td>
+          <td class="col-item">${escapeHtml(itemText(change))}</td>
+          <td class="col-diff"><span class="change-text">${changeText(change)}</span></td>
+          <td class="col-confidence">${Math.round((change.confidence || 0) * 100)}%</td>`;
+        tr.addEventListener('click', () => selectChange(index));
+        tr.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectChange(index);
+          }
+        });
+        elements.rows.append(tr);
+      });
+      elements.rowCount.textContent = `${rows.length} / ${allChanges.length} 项`;
+    }
+
+    function selectChange(index, focusTable = false) {
+      state.selected = index;
+      renderTable();
+      renderViewer();
+      if (focusTable) {
+        const row = elements.rows.querySelector(`tr[data-index="${index}"]`);
+        if (row) row.focus({ preventScroll: true });
+      }
+    }
+
+    function renderViewer() {
+      const change = allChanges[state.selected];
+      if (!change) {
+        elements.empty.hidden = false;
+        elements.grid.hidden = true;
+        elements.title.textContent = '没有可显示的差异';
+        elements.meta.innerHTML = '';
+        elements.confidence.innerHTML = '—<span>置信度</span>';
+        return;
+      }
+      elements.empty.hidden = true;
+      elements.grid.hidden = false;
+      elements.title.textContent = localizedTitle(change);
+      const meta = [`第 ${change.pageNumber || '—'} 页`, TYPE_LABELS[change.change_type] || change.change_type];
+      if (change.before || change.after) {
+        meta.push(`<code>${escapeHtml(change.before || '（空）')} → ${escapeHtml(change.after || '（空）')}</code>`);
+      }
+      elements.meta.innerHTML = meta.join(' · ');
+      elements.confidence.innerHTML = `${Math.round((change.confidence || 0) * 100)}%<span>置信度</span>`;
+      elements.foot.textContent = `依据：${change.reason || '视觉与文字证据'} · 滚轮缩放 · 拖动平移 · 双击复位`;
+      const mode = state.mode;
+      elements.grid.className = `view-grid ${mode === 'both' ? 'double' : 'single'}`;
+      elements.primaryCard.hidden = true;
+      elements.secondaryCard.hidden = true;
+
+      if (mode === 'evidence') {
+        showCard(
+          elements.primaryCard,
+          elements.primaryLabel,
+          elements.primaryImage,
+          '差异证据',
+          change.change_type === 'block_move'
+            ? (change.oldPageNumber === change.newPageNumber
+              ? `第 ${change.oldPageNumber} 页内移动 · ${change.evidence_dpi || 320} DPI`
+              : `第 ${change.oldPageNumber} 页 | 第 ${change.newPageNumber} 页 · ${change.evidence_dpi || 320} DPI`)
+            : `BEFORE | AFTER · ${change.evidence_dpi || 320} DPI`,
+          change.evidence_image,
+          '',
+          '差异前后证据'
+        );
+      } else if (mode === 'old') {
+        showCard(elements.primaryCard, elements.primaryLabel, elements.primaryImage, '旧版页面', 'OLD · 放大自动加载高清', change.oldPageImage, change.oldPageDetailImage, '旧版页面');
+      } else if (mode === 'new') {
+        showCard(elements.primaryCard, elements.primaryLabel, elements.primaryImage, '新版页面', 'NEW · 放大自动加载高清', change.newPageImage, change.newPageDetailImage, '新版页面');
+      } else {
+        showCard(elements.primaryCard, elements.primaryLabel, elements.primaryImage, '旧版页面', 'OLD · 放大自动加载高清', change.oldPageImage, change.oldPageDetailImage, '旧版页面');
+        showCard(elements.secondaryCard, elements.secondaryLabel, elements.secondaryImage, '新版页面', 'NEW · 放大自动加载高清', change.newPageImage, change.newPageDetailImage, '新版页面');
+      }
+      applyViewTransform();
+    }
+
+    function showCard(card, labelEl, imageEl, label, hint, source, detailSource, alt) {
+      if (!source) {
+        card.hidden = true;
+        return;
+      }
+      card.hidden = false;
+      imageEl.dataset.detailSource = detailSource || '';
+      imageEl.dataset.detailLoaded = '0';
+      imageEl.src = source;
+      imageEl.alt = alt;
+      labelEl.textContent = label;
+      const hintEl = labelEl.parentElement.querySelector('small');
+      hintEl.textContent = hint;
+      if (state.zoom >= 1.2) loadDetailImage(imageEl);
+    }
+
+    function loadDetailImage(imageEl) {
+      const detailSource = imageEl.dataset.detailSource;
+      if (!detailSource || imageEl.dataset.detailLoaded === '1') return;
+      imageEl.dataset.detailLoaded = '1';
+      const target = new Image();
+      target.decoding = 'async';
+      target.onload = () => {
+        if (imageEl.dataset.detailSource === detailSource) {
+          imageEl.src = detailSource;
+        }
+      };
+      target.src = detailSource;
+    }
+
+    function loadVisibleDetailImages() {
+      [elements.primaryImage, elements.secondaryImage].forEach(imageEl => {
+        if (!imageEl.closest('.view-card').hidden) loadDetailImage(imageEl);
+      });
+    }
+
+    function applyViewTransform() {
+      elements.grid.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+      elements.zoom.textContent = `${Math.round(state.zoom * 100)}%`;
+      if (state.zoom >= 1.2) loadVisibleDetailImages();
+    }
+
+    function resetView() {
+      state.zoom = 1;
+      state.panX = 0;
+      state.panY = 0;
+      applyViewTransform();
+    }
+
+    function clamp(value, minimum, maximum) {
+      return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    function zoomAt(clientX, clientY, factor) {
+      const oldZoom = state.zoom;
+      const nextZoom = clamp(oldZoom * factor, .35, 16);
+      if (nextZoom === oldZoom) return;
+      const rect = elements.canvas.getBoundingClientRect();
+      const x = clientX - rect.left - 16;
+      const y = clientY - rect.top - 16;
+      const ratio = nextZoom / oldZoom;
+      state.panX = x - (x - state.panX) * ratio;
+      state.panY = y - (y - state.panY) * ratio;
+      state.zoom = nextZoom;
+      applyViewTransform();
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      resetView();
+      document.querySelectorAll('[data-mode]').forEach(button => {
+        button.classList.toggle('active', button.dataset.mode === mode);
+      });
+      renderViewer();
+    }
+
+    function setFilter(filter) {
+      state.filter = filter;
+      document.querySelectorAll('[data-filter]').forEach(button => {
+        button.classList.toggle('active', button.dataset.filter === filter);
+      });
+      renderTable();
+    }
+
+    function setLayout(layout) {
+      state.layout = layout;
+      resetView();
+      elements.workspace.classList.toggle('stacked', layout === 'stack');
+      document.getElementById('layoutSplit').classList.toggle('active', layout === 'split');
+      document.getElementById('layoutStack').classList.toggle('active', layout === 'stack');
+    }
+
+    function setTheme(dark) {
+      state.dark = dark;
+      document.body.classList.toggle('dark', dark);
+      elements.theme.textContent = dark ? '亮色' : '暗色';
+      try { localStorage.setItem('schemadiff-report-theme', dark ? 'dark' : 'light'); } catch (_) {}
+    }
+
+    document.querySelectorAll('[data-mode]').forEach(button => {
+      button.addEventListener('click', () => setMode(button.dataset.mode));
+    });
+    document.querySelectorAll('[data-filter]').forEach(button => {
+      button.addEventListener('click', () => setFilter(button.dataset.filter));
+    });
+    document.getElementById('layoutSplit').addEventListener('click', () => setLayout('split'));
+    document.getElementById('layoutStack').addEventListener('click', () => setLayout('stack'));
+    elements.search.addEventListener('input', () => {
+      state.query = elements.search.value.trim();
+      renderTable();
+    });
+    let dragState = null;
+    elements.canvas.addEventListener('wheel', event => {
+      event.preventDefault();
+      let delta = event.deltaY;
+      if (event.deltaMode === 1) delta *= 30;
+      if (event.deltaMode === 2) delta *= 300;
+      zoomAt(event.clientX, event.clientY, Math.pow(1.1, -delta / 40));
+    }, { passive: false });
+    elements.canvas.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      dragState = {
+        pointerId: event.pointerId,
+        lastX: event.clientX,
+        lastY: event.clientY
+      };
+      elements.canvas.setPointerCapture(event.pointerId);
+      elements.canvas.classList.add('dragging');
+    });
+    elements.canvas.addEventListener('pointermove', event => {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      state.panX += event.clientX - dragState.lastX;
+      state.panY += event.clientY - dragState.lastY;
+      dragState.lastX = event.clientX;
+      dragState.lastY = event.clientY;
+      applyViewTransform();
+    });
+    function endDrag(event) {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      dragState = null;
+      elements.canvas.classList.remove('dragging');
+      if (elements.canvas.hasPointerCapture(event.pointerId)) {
+        elements.canvas.releasePointerCapture(event.pointerId);
+      }
+    }
+    elements.canvas.addEventListener('pointerup', endDrag);
+    elements.canvas.addEventListener('pointercancel', endDrag);
+    elements.canvas.addEventListener('dblclick', event => {
+      event.preventDefault();
+      resetView();
+    });
+    elements.canvas.addEventListener('contextmenu', event => {
+      event.preventDefault();
+      resetView();
+    });
+    document.getElementById('printReport').addEventListener('click', () => window.print());
+    document.getElementById('downloadJson').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify({ summary: SUMMARY, pages: REPORT_DATA }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'schematic-diff-results.json';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    document.getElementById('downloadHtml').addEventListener('click', () => {
+      const html = '<!doctype html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'schematic-diff-report.html';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    elements.theme.addEventListener('click', () => setTheme(!state.dark));
+    document.addEventListener('keydown', event => {
+      const target = event.target;
+      if (target && ['INPUT','SELECT','TEXTAREA','BUTTON','A'].includes(target.tagName)) return;
+      if (!allChanges.length) return;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const direction = event.key === 'ArrowDown' ? 1 : -1;
+        const next = Math.max(0, Math.min(allChanges.length - 1, state.selected + direction));
+        selectChange(next, true);
+      }
+      if (event.key === '+' || event.key === '=') {
+        const rect = elements.canvas.getBoundingClientRect();
+        zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, 1.15);
+      }
+      if (event.key === '-') {
+        const rect = elements.canvas.getBoundingClientRect();
+        zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, 1 / 1.15);
+      }
+      if (event.key === '0') resetView();
+    });
+
+    document.getElementById('oldName').textContent = OLD_NAME;
+    document.getElementById('newName').textContent = NEW_NAME;
+    document.getElementById('filePair').textContent = `${OLD_NAME} → ${NEW_NAME}`;
+    document.getElementById('metricPages').textContent = SUMMARY.changed_pages;
+    document.getElementById('metricChanges').textContent = SUMMARY.change_count;
+    document.getElementById('metricMatched').textContent = SUMMARY.matched_pages;
+    const identityCheck = SUMMARY.document_compatibility;
+    if (identityCheck && identityCheck.status === 'review') {
+      const warning = document.getElementById('identityWarning');
+      warning.textContent =
+        `页面身份证据偏弱：可靠配对 ${identityCheck.matched_pages} 页，` +
+        `匹配覆盖率 ${Math.round(identityCheck.coverage * 100)}%，` +
+        `页面相似度中位数 ${Math.round(identityCheck.median_similarity * 100)}%。` +
+        '请先确认两份文件属于同一套原理图。';
+      warning.hidden = false;
+    }
+    try {
+      setTheme(localStorage.getItem('schemadiff-report-theme') === 'dark');
+    } catch (_) {}
+    renderTable();
+    renderViewer();
+  </script>
+</body>
+</html>

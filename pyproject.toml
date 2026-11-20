@@ -1,0 +1,37 @@
+[project]
+name = "schematic-pdf-diff"
+version = "0.1.0"
+description = "Offline semantic and visual comparison of schematic PDF revisions"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "Flask>=3.1,<4",
+  "numpy>=2.0",
+  "opencv-python-headless>=4.10",
+  "pdfplumber>=0.11",
+  "Pillow>=11",
+  "pypdf>=5",
+  "pypdfium2>=4.30",
+]
+
+[project.optional-dependencies]
+dev = [
+  "openpyxl>=3.1",
+  "pytest>=8",
+  "reportlab>=4",
+]
+
+[project.scripts]
+schemadiff = "schemadiff.cli:main"
+schemadiff-web = "schemadiff.webapp:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/schemadiff"]
