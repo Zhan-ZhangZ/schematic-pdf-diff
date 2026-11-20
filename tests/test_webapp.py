@@ -40,6 +40,9 @@ def test_web_index_and_health(tmp_path: Path) -> None:
     assert "电子原理图PDF差异扫描" in index_html
     assert "发现版本差异，直接定位到原理图证据" not in index_html
     assert "job.status === 'rejected'" in index_html
+    assert 'id="historyPanel"' in index_html
+    assert 'id="backToUpload"' in index_html
+    assert "window.location.assign(job.links.report)" not in index_html
     health = client.get("/api/health")
     assert health.status_code == 200
     payload = health.get_json()
@@ -106,6 +109,16 @@ def test_web_compares_uploaded_pdfs(tmp_path: Path) -> None:
     assert status["summary"]["changed_pages"] >= 1
     assert status["summary"]["change_count"] >= 1
     assert status["summary"]["document_compatibility"]["status"] in {"pass", "review"}
+    history = client.get("/api/jobs?limit=10")
+    assert history.status_code == 200
+    history_jobs = history.get_json()["jobs"]
+    assert history_jobs
+    assert history_jobs[0]["job_id"] == job_id
+    assert history_jobs[0]["status"] == "complete"
+    restarted = create_app(tmp_path / "web", max_workers=1)
+    restarted.config.update(TESTING=True)
+    persisted = restarted.test_client().get("/api/jobs?limit=10").get_json()["jobs"]
+    assert any(item["job_id"] == job_id for item in persisted)
 
     report = client.get(status["links"]["report"])
     assert report.status_code == 200
@@ -115,6 +128,8 @@ def test_web_compares_uploaded_pdfs(tmp_path: Path) -> None:
     assert "data:image/webp;base64," in report_html
     assert 'src="assets/' not in report_html
     assert 'id="backLink"' not in report_html
+    assert 'id="returnButton"' in report_html
+    assert "返回比对页" in report_html
     assert 'id="zoomOut"' not in report_html
     assert "addEventListener('wheel'" in report_html
     assert 'before_page_detail_image' in report_html

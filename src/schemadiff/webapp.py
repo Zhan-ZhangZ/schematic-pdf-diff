@@ -107,6 +107,34 @@ class WebJobManager:
             job = self._jobs.get(job_id)
             return dict(job) if job is not None else None
 
+    def list_jobs(self, limit: int = 50) -> list[dict[str, Any]]:
+        with self._lock:
+            jobs = sorted(
+                self._jobs.values(),
+                key=lambda item: item.get("updated_at") or item.get("created_at") or "",
+                reverse=True,
+            )
+            return [
+                {
+                    key: job.get(key)
+                    for key in (
+                        "job_id",
+                        "status",
+                        "phase_label",
+                        "progress",
+                        "created_at",
+                        "updated_at",
+                        "completed_at",
+                        "old_name",
+                        "new_name",
+                        "summary",
+                        "error",
+                        "links",
+                    )
+                }
+                for job in jobs[: max(1, min(limit, 200))]
+            ]
+
     def create_job(
         self,
         old_file,
@@ -463,6 +491,14 @@ def create_app(
             logger.exception("Failed to create comparison job")
             return jsonify({"error": "无法创建处理任务，请检查文件后重试。"}), 500
         return jsonify(job), 202
+
+    @app.get(route("/api/jobs"))
+    def list_jobs():
+        try:
+            limit = int(request.args.get("limit", "50"))
+        except ValueError:
+            return jsonify({"error": "记录数量参数无效。"}), 400
+        return jsonify({"jobs": manager.list_jobs(limit=limit)})
 
     @app.get(route("/api/jobs/<job_id>"))
     def get_job(job_id: str):

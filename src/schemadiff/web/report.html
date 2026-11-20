@@ -575,6 +575,7 @@
       </div>
 
       <div class="toolbar-spacer"></div>
+      <button type="button" id="returnButton" hidden>返回比对页</button>
       <button type="button" id="themeButton" title="切换明暗主题">暗色</button>
       <button type="button" id="printReport">打印</button>
       <button type="button" id="downloadJson">JSON</button>
@@ -1126,6 +1127,19 @@
         `页面相似度中位数 ${Math.round(identityCheck.median_similarity * 100)}%。` +
         '请先确认两份文件属于同一套原理图。';
       warning.hidden = false;
+    }
+    const returnButton = document.getElementById('returnButton');
+    const reportPath = window.location.pathname;
+    const runsMarker = '/runs/';
+    const runsIndex = reportPath.indexOf(runsMarker);
+    if (
+      runsIndex >= 0
+      && (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+    ) {
+      returnButton.hidden = false;
+      returnButton.addEventListener('click', () => {
+        window.location.assign(reportPath.slice(0, runsIndex + 1));
+      });
     }
     try {
       setTheme(localStorage.getItem('schemadiff-report-theme') === 'dark');

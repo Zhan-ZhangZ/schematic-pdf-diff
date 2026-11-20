@@ -135,6 +135,43 @@
       display: none; margin-top: 16px; padding: 12px 14px; border-radius: 10px;
       color: var(--red); background: var(--red-soft); border: 1px solid #efc9c4;
     }
+    .history-panel { margin-top: 18px; }
+    .history-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 14px;
+    }
+    .history-head h2 { margin: 0; font-size: 20px; }
+    .history-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .history-list { display: grid; gap: 10px; }
+    .history-item {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px; align-items: center; padding: 13px 14px;
+      border: 1px solid var(--line); border-radius: 11px; background: #fbfcfd;
+    }
+    .history-item:hover { background: #f7fafc; }
+    .history-title {
+      min-width: 0; font-weight: 700; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .history-meta {
+      display: flex; flex-wrap: wrap; gap: 6px 12px;
+      margin-top: 6px; color: var(--muted); font-size: 11px;
+    }
+    .history-status {
+      display: inline-flex; align-items: center; border-radius: 999px;
+      padding: 2px 7px; font-size: 10px; font-weight: 750;
+      color: var(--green); background: var(--green-soft);
+    }
+    .history-status[data-status="rejected"],
+    .history-status[data-status="error"] {
+      color: var(--red); background: var(--red-soft);
+    }
+    .history-actions { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+    .history-actions button, .history-actions a { min-height: 34px; padding: 7px 11px; font-size: 12px; }
+    .history-empty {
+      padding: 28px 16px; border: 1px dashed var(--line); border-radius: 11px;
+      color: var(--muted); text-align: center; background: #fbfcfd;
+    }
     .result { display: none; margin-top: 28px; }
     .result-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
     .result-head h2 { margin: 0 0 5px; font-size: 25px; }
@@ -161,6 +198,8 @@
       main { padding-top: 34px; }
       .upload-grid, .changes { grid-template-columns: 1fr; }
       .option-grid { grid-template-columns: 1fr 1fr; }
+      .history-item { grid-template-columns: 1fr; }
+      .history-actions { justify-content: flex-start; }
       .result-head { display: block; }
       .result-head .actions { margin-top: 12px; }
       .report-frame { min-height: 640px; }
@@ -250,6 +289,17 @@
       </form>
     </section>
 
+    <section class="panel history-panel" id="historyPanel">
+      <div class="history-head">
+        <div>
+          <h2>比对记录</h2>
+          <p>记录保存在本机，重新打开软件后仍可继续查看。</p>
+        </div>
+        <button class="secondary" id="refreshHistory" type="button">刷新</button>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </section>
+
     <section class="result" id="resultPanel">
       <div class="result-head">
         <div>
@@ -258,6 +308,7 @@
           <p id="resultSubtitle"></p>
         </div>
         <div class="actions">
+          <button class="secondary" id="backToUpload" type="button">返回比对页</button>
           <a class="primary" id="reportLink" target="_blank" rel="noopener">打开完整报告</a>
           <a class="secondary" id="pdfLink" target="_blank" rel="noopener">审阅 PDF</a>
           <a class="secondary" id="downloadLink">下载结果 ZIP</a>
@@ -291,6 +342,8 @@
     const progressPercent = document.getElementById('progressPercent');
     const errorBox = document.getElementById('errorBox');
     const uploadPanel = document.getElementById('uploadPanel');
+    const historyPanel = document.getElementById('historyPanel');
+    const historyList = document.getElementById('historyList');
     const resultPanel = document.getElementById('resultPanel');
     const reportFrame = document.getElementById('reportFrame');
     const emptyReport = document.querySelector('.empty-report');
@@ -364,6 +417,131 @@
       errorBox.style.display = 'none';
     }
 
+    function statusLabel(status) {
+      return ({
+        complete: '已完成',
+        rejected: '已拦截',
+        error: '失败',
+        running: '处理中',
+        queued: '等待中'
+      })[status] || status;
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('zh-CN');
+    }
+
+    async function refreshHistory() {
+      try {
+        const response = await fetch(`${BASE_PATH}/api/jobs?limit=50`, { cache: 'no-store' });
+        if (!response.ok) throw new Error('无法读取比对记录。');
+        const payload = await response.json();
+        const jobs = payload.jobs || [];
+        historyList.innerHTML = '';
+        if (!jobs.length) {
+          historyList.innerHTML = '<div class="history-empty">还没有比对记录。</div>';
+          return;
+        }
+        jobs.forEach(job => {
+          const item = document.createElement('article');
+          item.className = 'history-item';
+          const summary = job.summary || {};
+          const metrics = job.status === 'complete'
+            ? `变更页 ${summary.changed_pages ?? 0} · 审阅项 ${summary.change_count ?? 0} · 配对页 ${summary.matched_pages ?? 0}`
+            : (job.error || job.phase_label || '');
+          item.innerHTML = `
+            <div>
+              <div class="history-title">${escapeHtml(job.old_name || '旧版')} → ${escapeHtml(job.new_name || '新版')}</div>
+              <div class="history-meta">
+                <span class="history-status" data-status="${escapeHtml(job.status)}">${escapeHtml(statusLabel(job.status))}</span>
+                <span>${escapeHtml(formatDate(job.updated_at || job.created_at))}</span>
+                <span>${escapeHtml(metrics)}</span>
+              </div>
+            </div>
+            <div class="history-actions"></div>`;
+          const actions = item.querySelector('.history-actions');
+          if (job.status === 'complete' || job.status === 'running' || job.status === 'queued') {
+            const open = document.createElement('button');
+            open.type = 'button';
+            open.className = 'secondary';
+            open.textContent = job.status === 'complete' ? '查看结果' : '查看进度';
+            open.addEventListener('click', () => openHistoryJob(job.job_id));
+            actions.append(open);
+          } else {
+            const reason = document.createElement('button');
+            reason.type = 'button';
+            reason.className = 'secondary';
+            reason.textContent = '查看原因';
+            reason.addEventListener('click', () => openHistoryJob(job.job_id));
+            actions.append(reason);
+          }
+          if (job.status === 'complete' && job.links?.download) {
+            const download = document.createElement('a');
+            download.className = 'secondary';
+            download.href = job.links.download;
+            download.textContent = '下载 ZIP';
+            actions.append(download);
+          }
+          historyList.append(item);
+        });
+      } catch (error) {
+        historyList.innerHTML = `<div class="history-empty">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    async function openHistoryJob(jobId) {
+      clearError();
+      const response = await fetch(`${BASE_PATH}/api/jobs/${jobId}`, { cache: 'no-store' });
+      if (!response.ok) {
+        showError('该比对记录已经不存在。');
+        await refreshHistory();
+        return;
+      }
+      const job = await response.json();
+      currentJob = job.job_id;
+      if (job.status === 'complete') {
+        showResult(job);
+        return;
+      }
+      if (job.status === 'error' || job.status === 'rejected') {
+        uploadPanel.style.display = 'block';
+        historyPanel.style.display = 'block';
+        resultPanel.style.display = 'none';
+        setProgress(job.status === 'rejected' ? '文件不匹配，已拦截' : '处理失败', 100);
+        showError(job.error || '任务未完成。');
+        return;
+      }
+      uploadPanel.style.display = 'block';
+      historyPanel.style.display = 'block';
+      resultPanel.style.display = 'none';
+      startButton.disabled = true;
+      setProgress(job.phase_label || '正在恢复任务状态', job.progress || 0);
+      if (polling) clearInterval(polling);
+      polling = setInterval(() => findJob().catch(error => showError(error.message)), 900);
+    }
+
+    function showUploadView({ resetForm = false } = {}) {
+      if (polling) clearInterval(polling);
+      polling = null;
+      currentJob = null;
+      resultPanel.style.display = 'none';
+      reportFrame.src = 'about:blank';
+      uploadPanel.style.display = 'block';
+      historyPanel.style.display = 'block';
+      if (resetForm) {
+        form.reset();
+        setFile(oldInput, 'oldName', 'dropOld');
+        setFile(newInput, 'newName', 'dropNew');
+        progressWrap.style.display = 'none';
+        progressBar.style.width = '0';
+        clearError();
+      }
+      refreshHistory();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     async function findJob() {
       const response = await fetch(`${BASE_PATH}/api/jobs/${currentJob}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('服务未找到当前任务。');
@@ -372,22 +550,23 @@
         clearInterval(polling);
         setProgress('比对完成', 100);
         showResult(job);
+        refreshHistory();
       } else if (job.status === 'error' || job.status === 'rejected') {
         clearInterval(polling);
         startButton.disabled = false;
         setProgress(job.status === 'rejected' ? '文件不匹配，已拦截' : '处理失败', 100);
         showError(job.error || '处理失败，请查看服务日志。');
+        historyPanel.style.display = 'block';
+        refreshHistory();
       } else {
         setProgress(job.phase_label || '处理中', job.progress || 0);
       }
     }
 
     function showResult(job) {
-      if (job.links && job.links.report) {
-        window.location.assign(job.links.report);
-        return;
-      }
+      currentJob = job.job_id;
       uploadPanel.style.display = 'none';
+      historyPanel.style.display = 'none';
       resultPanel.style.display = 'block';
       document.getElementById('statPages').textContent = job.summary.changed_pages;
       document.getElementById('statChanges').textContent = job.summary.change_count;
@@ -414,7 +593,7 @@
         reportFrame.style.display = 'none';
         emptyReport.style.display = 'block';
       }
-      resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     form.addEventListener('submit', event => {
@@ -434,6 +613,7 @@
         return;
       }
       startButton.disabled = true;
+      historyPanel.style.display = 'none';
       resultPanel.style.display = 'none';
       setProgress('正在上传', 1);
       const data = new FormData(form);
@@ -464,22 +644,13 @@
       xhr.send(data);
     });
 
-    document.getElementById('restartButton').addEventListener('click', () => {
-      if (polling) clearInterval(polling);
-      currentJob = null;
-      form.reset();
-      setFile(oldInput, 'oldName', 'dropOld');
-      setFile(newInput, 'newName', 'dropNew');
-      progressWrap.style.display = 'none';
-      progressBar.style.width = '0';
-      resultPanel.style.display = 'none';
-      uploadPanel.style.display = 'block';
-      clearError();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    document.getElementById('backToUpload').addEventListener('click', () => showUploadView());
+    document.getElementById('restartButton').addEventListener('click', () => showUploadView({ resetForm: true }));
+    document.getElementById('refreshHistory').addEventListener('click', refreshHistory);
 
     setupDrop(oldInput, 'oldName', 'dropOld');
     setupDrop(newInput, 'newName', 'dropNew');
+    refreshHistory();
   </script>
 </body>
 </html>

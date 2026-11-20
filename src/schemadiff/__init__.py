@@ -5,4 +5,4 @@ from .pipeline import compare_documents
 
 __all__ = ["CompareConfig", "compare_documents"]
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

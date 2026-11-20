@@ -112,6 +112,8 @@ Windows 和 macOS 发布包会启动原生窗口并自动连接随机本地端�
 
 - Windows：`ElectronicSchematicPdfDiff.exe`
 - macOS：`Electronic Schematic PDF Diff.app`
+- 比对完成后可返回上传页或开始新的比对。
+- 本机自动保存比对记录，重启应用后仍可进入原报告。
 - 本地数据位置、签名说明和构建命令见 [桌面版说明](docs/desktop.md)。
 
 桌面版构建：
