@@ -36,7 +36,7 @@ jobs:
           python -m pip install -e ".[desktop,build]"
       - name: Build desktop package
         run: python scripts/build_desktop.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
           path: release/*

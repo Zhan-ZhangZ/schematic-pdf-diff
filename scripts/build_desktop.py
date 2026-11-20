@@ -77,6 +77,30 @@ def archive_macos() -> list[Path]:
     return [output, dmg]
 
 
+def smoke_test() -> None:
+    if sys.platform == "darwin":
+        executable = (
+            DIST
+            / "Electronic Schematic PDF Diff.app"
+            / "Contents"
+            / "MacOS"
+            / "ElectronicSchematicPdfDiff"
+        )
+    else:
+        executable = DIST / "ElectronicSchematicPdfDiff.exe"
+    if not executable.exists():
+        raise FileNotFoundError(executable)
+    data_dir = WORK / "smoke-data"
+    if data_dir.exists():
+        shutil.rmtree(data_dir)
+    subprocess.run(
+        [str(executable), "--smoke-test", "--data-dir", str(data_dir)],
+        cwd=ROOT,
+        check=True,
+        timeout=60,
+    )
+
+
 def main() -> int:
     RELEASE.mkdir(parents=True, exist_ok=True)
     if DIST.exists():
@@ -94,6 +118,7 @@ def main() -> int:
         str(WORK),
         str(ROOT / "packaging" / "schemadiff-desktop.spec"),
     )
+    smoke_test()
     if sys.platform == "win32":
         outputs = [archive_windows()]
     elif sys.platform == "darwin":

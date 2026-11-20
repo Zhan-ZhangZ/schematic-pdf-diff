@@ -180,7 +180,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Override the local application data directory.",
     )
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument(
+        "--smoke-test",
+        action="store_true",
+        help="Start and stop the bundled local server without opening a window.",
+    )
     args = parser.parse_args(argv)
+    if args.smoke_test:
+        root = (args.data_dir or application_data_dir()).resolve()
+        with DesktopServer(root) as server:
+            _wait_for_server(server)
+        return 0
     run_desktop(data_dir=args.data_dir, debug=args.debug)
     return 0
 
