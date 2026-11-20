@@ -9,14 +9,13 @@ import tempfile
 import threading
 import time
 import uuid
-import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory
+from flask import Flask, Response, jsonify, redirect, request, send_from_directory
 from werkzeug.serving import make_server
 
 from . import __version__
@@ -221,7 +220,6 @@ class WebJobManager:
             "report": f"{run_base}/report.html",
             "pdf": f"{run_base}/changes.pdf",
             "results": f"{run_base}/results.json",
-            "download": f"{self.prefix}/api/jobs/{job_id}/download",
             "status": f"{self.prefix}/api/jobs/{job_id}",
         }
 
@@ -362,25 +360,6 @@ class WebJobManager:
         if job is None:
             return None
         return self._job_dir(job_id) / "result"
-
-    def download_zip(self, job_id: str) -> Path:
-        job = self.get(job_id)
-        job_dir = self._job_dir(job_id)
-        if job is None or job.get("status") != "complete" or not job_dir.exists():
-            raise FileNotFoundError(job_id)
-        archive = job_dir / "comparison-result.zip"
-        with self._lock:
-            with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
-                bundle.write(self._job_path(job_id), "job.json")
-                events_path = job_dir / "events.jsonl"
-                if events_path.exists():
-                    bundle.write(events_path, "events.jsonl")
-                result_dir = job_dir / "result"
-                for path in sorted(result_dir.rglob("*")):
-                    if path.is_file():
-                        bundle.write(path, path.relative_to(job_dir))
-        return archive
-
 
 def _configure_web_logging(output_root: Path) -> None:
     app_logger = logging.getLogger("schemadiff")
@@ -526,21 +505,6 @@ def create_app(
                 csp + "; frame-ancestors 'self'"
             )
         return response
-
-    @app.get(route("/api/jobs/<job_id>/download"))
-    def download_job(job_id: str):
-        if not JOB_ID_RE.fullmatch(job_id):
-            return jsonify({"error": "任务编号无效。"}), 404
-        try:
-            archive = manager.download_zip(job_id)
-        except FileNotFoundError:
-            return jsonify({"error": "结果尚未生成或任务不存在。"}), 404
-        return send_file(
-            archive,
-            as_attachment=True,
-            download_name=f"schematic-diff-{job_id}.zip",
-            mimetype="application/zip",
-        )
 
     @app.errorhandler(413)
     def too_large(_error):

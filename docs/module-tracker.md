@@ -20,7 +20,7 @@ Status values: `planned`, `prototype`, `verified`, `hardened`.
 | Benchmark evaluation | verified | Optional local mapping and reference-conflict notes |
 | Scanned PDF fixture | verified | Translation/rotation plus local OCR test |
 | Chinese documentation | verified | Sanitized public architecture and implementation notes |
-| Local web interface | verified | Upload, progress, summary, embedded report, ZIP export |
+| Local web interface | verified | Upload, progress, persistent history, embedded report |
 | Comparison output page | verified | Standalone HTML, mouse zoom/pan, 900 DPI evidence, lazy detail layer |
 
 ## Next hardening work

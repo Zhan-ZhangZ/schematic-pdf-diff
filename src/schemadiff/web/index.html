@@ -311,7 +311,6 @@
           <button class="secondary" id="backToUpload" type="button">返回比对页</button>
           <a class="primary" id="reportLink" target="_blank" rel="noopener">打开完整报告</a>
           <a class="secondary" id="pdfLink" target="_blank" rel="noopener">审阅 PDF</a>
-          <a class="secondary" id="downloadLink">下载结果 ZIP</a>
         </div>
       </div>
       <div class="stats">
@@ -477,13 +476,6 @@
             reason.addEventListener('click', () => openHistoryJob(job.job_id));
             actions.append(reason);
           }
-          if (job.status === 'complete' && job.links?.download) {
-            const download = document.createElement('a');
-            download.className = 'secondary';
-            download.href = job.links.download;
-            download.textContent = '下载 ZIP';
-            actions.append(download);
-          }
           historyList.append(item);
         });
       } catch (error) {
@@ -584,7 +576,6 @@
       const reportUrl = job.links.report;
       document.getElementById('reportLink').href = reportUrl;
       document.getElementById('pdfLink').href = job.links.pdf;
-      document.getElementById('downloadLink').href = job.links.download;
       if ((job.changes || []).length) {
         reportFrame.src = reportUrl;
         reportFrame.style.display = 'block';

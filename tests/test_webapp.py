@@ -136,6 +136,5 @@ def test_web_compares_uploaded_pdfs(tmp_path: Path) -> None:
     assert "loadDetailImage" in report_html
     assert "frame-ancestors" in report.headers["Content-Security-Policy"]
 
-    download = client.get(status["links"]["download"])
-    assert download.status_code == 200
-    assert download.mimetype == "application/zip"
+    assert "download" not in status["links"]
+    assert client.get(f"/api/jobs/{job_id}/download").status_code == 404
